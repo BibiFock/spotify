@@ -9,6 +9,8 @@ import (
 	"strings"
 )
 
+const fileJson = "./client.json"
+
 type Client struct {
 	Url          string   `json:"url"`
 	Id           string   `json:"clientId"`
@@ -16,10 +18,11 @@ type Client struct {
 	ResponseType string   `json:"responseType"`
 	RedirectUri  string   `json:"redirect_uri"`
 	Scopes       []string `json:"scopes"`
+	Token        string   `json:"token"`
 }
 
 func LoadClient() (c *Client) {
-	raw, err := ioutil.ReadFile("./client.json")
+	raw, err := ioutil.ReadFile(fileJson)
 	if err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
@@ -47,4 +50,17 @@ func (api Client) GetUrlAuth() string {
 	Url.RawQuery = params.Encode()
 
 	return Url.String()
+}
+
+func (c Client) SaveToJson() {
+	bytes, err := json.Marshal(c)
+	if err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
+
+	if ioutil.WriteFile(fileJson, bytes, 0644) != nil {
+		panic("can't write")
+	}
+
 }
