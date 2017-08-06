@@ -1,6 +1,7 @@
 package spotapi
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -43,8 +44,8 @@ func LoadClient() (c *Client) {
 
 	raw, err = ioutil.ReadFile(fileTokenJson)
 	if err != nil {
-		fmt.Println(err.Error())
-		os.Exit(1)
+		fmt.Println(fileTokenJson + " not found")
+		return c
 	}
 
 	if err = json.Unmarshal([]byte(raw), &c.auth); err != nil {
@@ -72,7 +73,47 @@ func (api Client) GetUrlAuth() string {
 	return Url.String()
 }
 
-func (c Client) GetToken(code string) {
+func (c *Client) refreshToken() bool {
+	urlToken := "https://accounts.spotify.com/api/token"
+
+	params := url.Values{}
+	params.Add("grant_type", "refresh_token")
+	params.Add("refresh_token", c.auth.RefreshToken)
+
+	req, err := http.NewRequest(http.MethodPost, urlToken, strings.NewReader(params.Encode()))
+	if err != nil {
+		panic("url error")
+	}
+
+	encoded := base64.StdEncoding.EncodeToString([]byte(c.Id + ":" + c.Secret))
+	req.Header.Add("Authorization", "Basic "+encoded)
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+	spotClient := http.Client{}
+	res, err := spotClient.Do(req)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		panic(err.Error())
+	}
+	if res.StatusCode != 200 {
+		fmt.Println(" refresh request response: " + string(body))
+		return false
+	}
+
+	if err := json.Unmarshal([]byte(body), &c.auth); err != nil {
+		panic(err)
+	}
+
+	fmt.Println(c.auth.Token)
+	c.saveCurrentToken()
+	return true
+}
+
+func (c *Client) GetToken(code string) {
 	urlToken := "https://accounts.spotify.com/api/token"
 
 	params := url.Values{}
@@ -104,6 +145,10 @@ func (c Client) GetToken(code string) {
 		panic(err)
 	}
 
+	c.saveCurrentToken()
+}
+
+func (c Client) saveCurrentToken() {
 	bytes, err := json.Marshal(c.auth)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -119,7 +164,9 @@ func (c Client) IsLogged() bool {
 	return c.auth != (Auth{})
 }
 
-func (c Client) GetNewSongs() string {
+func (c *Client) GetNewSongs() string {
+	c.refreshToken()
+
 	urlArtists := "https://api.spotify.com/v1/me/following?type=artist"
 	req, err := http.NewRequest(http.MethodGet, urlArtists, nil)
 	if err != nil {
@@ -131,7 +178,7 @@ func (c Client) GetNewSongs() string {
 
 	spotClient := http.Client{}
 	res, err := spotClient.Do(req)
-	if err != nil {
+	if err != nil || c.isBadResult(res) {
 		log.Fatal(err)
 	}
 
@@ -140,7 +187,37 @@ func (c Client) GetNewSongs() string {
 		panic(err.Error())
 	}
 
-	fmt.Println(string(body))
+	return c.auth.Token + string(body)
+}
 
-	return string(body)
+type errorJson struct {
+	Status  int
+	Message string
+}
+
+func (c Client) isBadResult(res *http.Response) bool {
+	if res.StatusCode == 200 {
+		return false
+	}
+
+	if res.StatusCode == 401 {
+		//fmt.Println("false false")
+		body, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			panic(err.Error())
+		}
+
+		var response map[string]errorJson
+		if err := json.Unmarshal([]byte(body), &response); err != nil {
+			panic(err.Error())
+		}
+
+		fmt.Println(string(body))
+		if response["error"].Message == "The access token expired" {
+			return !c.refreshToken()
+		}
+
+	}
+
+	return true
 }
