@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"html/template"
 	"net/http"
 	"spotapi"
 )
@@ -10,27 +9,25 @@ import (
 func main() {
 	fmt.Println("I'm up get ready for this bitch")
 	client := spotapi.LoadClient()
+	if !client.IsLogged() {
+		srv := &http.Server{Addr: ":8686"}
+		fmt.Println("Please click on this url: " + client.GetUrlAuth())
 
-	http.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
-		t, _ := template.ParseFiles("public/auth.html")
-		t.Execute(w, client)
-	})
+		http.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
+			code := r.FormValue("code")
+			client.GetToken(code)
+			w.Write([]byte("<html><body><script>setTimeout('window.close()', 500);</script></body>"))
+			// srv.Close()
+			doYourBest(client)
+		})
 
-	http.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
-		code := r.FormValue("code")
-		client.GetToken(code)
+		srv.ListenAndServe()
+		// srv.Shutdown()
+	} else {
+		doYourBest(client)
+	}
+}
 
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-	})
-
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if !client.IsLogged() {
-			http.Redirect(w, r, "/login", http.StatusSeeOther)
-			return
-		}
-
-		w.Write([]byte("hello, welcome in board captain <br />" + client.GetNewSongs()))
-	})
-
-	http.ListenAndServe(":8686", nil)
+func doYourBest(c *spotapi.Client) {
+	c.GetNewSongs()
 }

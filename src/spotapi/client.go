@@ -29,6 +29,7 @@ type Client struct {
 	RedirectUri  string   `json:"redirect_uri"`
 	Scopes       []string `json:"scopes"`
 	auth         Auth
+	artists      []Artist
 }
 
 func LoadClient() (c *Client) {
@@ -164,15 +165,87 @@ func (c Client) IsLogged() bool {
 	return c.auth != (Auth{})
 }
 
-func (c *Client) GetNewSongs() string {
-	c.refreshToken()
-
-	urlArtists := "https://api.spotify.com/v1/me/following?type=artist"
-	req, err := http.NewRequest(http.MethodGet, urlArtists, nil)
-	if err != nil {
-		panic("url error")
+func (c *Client) GetNewSongs() {
+	c.loadFollowingArtists()
+	var sJson struct {
+		Albums struct {
+			Next  string
+			Items []struct {
+				Artists       []Artist
+				Name          string
+				Id            string
+				External_urls struct {
+					Spotify string
+				}
+			}
+		}
 	}
 
+	fmt.Println("--- New Sonds are:")
+	sJson.Albums.Next = "https://api.spotify.com/v1/browse/new-releases?limit=50"
+	for sJson.Albums.Next != "" {
+		// fmt.Println(sJson.Albums.Next)
+		req, err := http.NewRequest(http.MethodGet, sJson.Albums.Next, nil)
+		if err != nil {
+			panic("url error")
+		}
+
+		body := c.doRequest(req)
+
+		sJson.Albums.Next = ""
+		if err := json.Unmarshal([]byte(body), &sJson); err != nil {
+			panic(err.Error())
+		}
+
+		for _, album := range sJson.Albums.Items {
+			for _, art := range album.Artists {
+				found := false
+				for _, artist := range c.artists {
+					if art.Id != artist.Id {
+						continue
+					}
+					found = true
+				}
+				if found {
+					fmt.Println(art.Name + " - " + album.Name + " (" + album.External_urls.Spotify + ")")
+					break
+				}
+			}
+		}
+	}
+}
+
+func (c *Client) loadFollowingArtists() {
+	var jsonStruct struct {
+		Artists struct {
+			Next  string
+			Items []Artist
+		}
+	}
+
+	jsonStruct.Artists.Next = "https://api.spotify.com/v1/me/following?type=artist&limit=50"
+
+	for jsonStruct.Artists.Next != "" {
+		// fmt.Println(jsonStruct.Artists.Next)
+		req, err := http.NewRequest(http.MethodGet, jsonStruct.Artists.Next, nil)
+		if err != nil {
+			panic("url error")
+		}
+
+		body := c.doRequest(req)
+
+		jsonStruct.Artists.Next = ""
+		if err := json.Unmarshal([]byte(body), &jsonStruct); err != nil {
+			panic(err.Error())
+		}
+
+		for _, artist := range jsonStruct.Artists.Items {
+			c.artists = append(c.artists, artist)
+		}
+	}
+}
+
+func (c *Client) doRequest(req *http.Request) string {
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Authorization", c.auth.Prefix+" "+c.auth.Token)
 
@@ -187,12 +260,7 @@ func (c *Client) GetNewSongs() string {
 		panic(err.Error())
 	}
 
-	return c.auth.Token + string(body)
-}
-
-type errorJson struct {
-	Status  int
-	Message string
+	return string(body)
 }
 
 func (c Client) isBadResult(res *http.Response) bool {
@@ -207,12 +275,15 @@ func (c Client) isBadResult(res *http.Response) bool {
 			panic(err.Error())
 		}
 
-		var response map[string]errorJson
+		var response map[string]struct {
+			Status  int
+			Message string
+		}
 		if err := json.Unmarshal([]byte(body), &response); err != nil {
 			panic(err.Error())
 		}
 
-		fmt.Println(string(body))
+		// fmt.Println(string(body))
 		if response["error"].Message == "The access token expired" {
 			return !c.refreshToken()
 		}
