@@ -18,6 +18,7 @@
         "user-read-private",
         "user-read-birthdate",
         "user-read-email",
-        "user-top-read"
+        "user-top-read",
+        "user-read-recently-played"
     ]
 }

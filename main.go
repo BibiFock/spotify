@@ -29,5 +29,8 @@ func main() {
 }
 
 func doYourBest(c *spotapi.Client) {
-	c.GetNewSongs()
+	// c.GetNewSongs()
+	// fmt.Println("------")
+	c.GetLastSongs()
+	// c.GetTopSongs()
 }

@@ -9,7 +9,9 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
+	// "time"
 )
 
 const fileJson = "./client.json"
@@ -165,6 +167,71 @@ func (c Client) IsLogged() bool {
 	return c.auth != (Auth{})
 }
 
+func (c *Client) GetLastSongs() {
+	var sJson struct {
+		Items []struct {
+			Track struct {
+				Artists []Artist
+				Name    string
+			}
+			Played_at string
+		}
+		Next string
+	}
+
+	fmt.Println("--- Last songs:")
+	sJson.Next = "https://api.spotify.com/v1/me/player/recently-played?limit=50"
+	for sJson.Next != "" {
+		req, err := http.NewRequest(http.MethodGet, sJson.Next, nil)
+		if err != nil {
+			panic("url error")
+		}
+
+		body := c.doRequest(req)
+
+		sJson.Next = ""
+		if err := json.Unmarshal([]byte(body), &sJson); err != nil {
+			panic(err.Error())
+		}
+
+		fmt.Println("---> test list ")
+		for _, item := range sJson.Items {
+			fmt.Println(item)
+		}
+		fmt.Println(sJson.Next)
+	}
+}
+
+func (c *Client) GetTopSongs() {
+	var sJson struct {
+		Items []struct {
+			Name string
+		}
+		Next string
+	}
+
+	fmt.Println("--- Top songs:")
+	sJson.Next = "https://api.spotify.com/v1/me/top/tracks?limit=50&time_range=long_term"
+	for sJson.Next != "" {
+		req, err := http.NewRequest(http.MethodGet, sJson.Next, nil)
+		if err != nil {
+			panic("url error")
+		}
+
+		body := c.doRequest(req)
+
+		sJson.Next = ""
+		if err := json.Unmarshal([]byte(body), &sJson); err != nil {
+			panic(err.Error())
+		}
+
+		for _, item := range sJson.Items {
+			fmt.Println(item)
+		}
+
+	}
+}
+
 func (c *Client) GetNewSongs() {
 	c.loadFollowingArtists()
 	var sJson struct {
@@ -226,7 +293,6 @@ func (c *Client) loadFollowingArtists() {
 	jsonStruct.Artists.Next = "https://api.spotify.com/v1/me/following?type=artist&limit=50"
 
 	for jsonStruct.Artists.Next != "" {
-		// fmt.Println(jsonStruct.Artists.Next)
 		req, err := http.NewRequest(http.MethodGet, jsonStruct.Artists.Next, nil)
 		if err != nil {
 			panic("url error")
@@ -252,7 +318,22 @@ func (c *Client) doRequest(req *http.Request) string {
 	spotClient := http.Client{}
 	res, err := spotClient.Do(req)
 	if err != nil || c.isBadResult(res) {
+		fmt.Println("request error")
 		log.Fatal(err)
+	}
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		fmt.Println("body parse error")
+		panic(err.Error())
+	}
+
+	return string(body)
+}
+
+func (c *Client) isBadResult(res *http.Response) bool {
+	if res.StatusCode == 200 {
+		return false
 	}
 
 	body, err := ioutil.ReadAll(res.Body)
@@ -260,34 +341,24 @@ func (c *Client) doRequest(req *http.Request) string {
 		panic(err.Error())
 	}
 
-	return string(body)
-}
-
-func (c Client) isBadResult(res *http.Response) bool {
-	if res.StatusCode == 200 {
-		return false
+	var response map[string]struct {
+		Status  int
+		Message string
+	}
+	if err := json.Unmarshal([]byte(body), &response); err != nil {
+		fmt.Println("FAILED to parse response")
+		panic(err.Error())
 	}
 
 	if res.StatusCode == 401 {
-		//fmt.Println("false false")
-		body, err := ioutil.ReadAll(res.Body)
-		if err != nil {
-			panic(err.Error())
-		}
+		fmt.Println("[ERROR] unauthorized access")
 
-		var response map[string]struct {
-			Status  int
-			Message string
-		}
-		if err := json.Unmarshal([]byte(body), &response); err != nil {
-			panic(err.Error())
-		}
-
-		// fmt.Println(string(body))
 		if response["error"].Message == "The access token expired" {
+			fmt.Println("Need to refresh fucking token")
 			return !c.refreshToken()
 		}
-
+	} else {
+		fmt.Println(strconv.Itoa(res.StatusCode) + ": " + response["error"].Message)
 	}
 
 	return true
