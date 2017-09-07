@@ -24,14 +24,12 @@ type Auth struct {
 }
 
 type Client struct {
-	Url          string   `json:"url"`
-	Id           string   `json:"clientId"`
-	Secret       string   `json:"clientSecret"`
-	ResponseType string   `json:"responseType"`
-	RedirectUri  string   `json:"redirect_uri"`
-	Scopes       []string `json:"scopes"`
-	auth         Auth
-	artists      []Artist
+	Id          string   `json:"clientId"`
+	Secret      string   `json:"clientSecret"`
+	RedirectUri string   `json:"redirect_uri"`
+	scopes      []string `json:"scopes"`
+	auth        Auth
+	artists     []Artist
 }
 
 func LoadClient() (c *Client) {
@@ -60,17 +58,34 @@ func LoadClient() (c *Client) {
 
 func (api Client) GetUrlAuth() string {
 	var Url *url.URL
-	Url, err := url.Parse(api.Url)
+	Url, err := url.Parse("https://accounts.spotify.com/authorize/")
 	if err != nil {
 		panic("fuck your self")
 	}
 
+	scopes := []string{
+		"playlist-read-private",
+		"playlist-read-collaborative",
+		"playlist-modify-public",
+		"playlist-modify-private",
+		"streaming",
+		"ugc-image-upload",
+		"user-follow-modify",
+		"user-follow-read",
+		"user-library-read",
+		"user-library-modify",
+		"user-read-private",
+		"user-read-birthdate",
+		"user-read-email",
+		"user-top-read",
+		"user-read-recently-played",
+	}
+
 	params := url.Values{}
 	params.Add("client_id", api.Id)
-	params.Add("response_type", api.ResponseType)
+	params.Add("response_type", "code")
 	params.Add("redirect_uri", api.RedirectUri)
-	params.Add("scope", strings.Join(api.Scopes, " "))
-	//params.Add("show_dialog", "true")
+	params.Add("scope", strings.Join(scopes, " "))
 	Url.RawQuery = params.Encode()
 
 	return Url.String()

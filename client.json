@@ -1,24 +1,5 @@
 {
-    "url": "https://accounts.spotify.com/authorize/",
     "clientId": "#ID#",
     "clientSecret": "#SECRET#",
-    "responseType": "code",
-    "redirect_uri": "http://localhost:8686/callback",
-    "scopes": [
-        "playlist-read-private",
-        "playlist-read-collaborative",
-        "playlist-modify-public",
-        "playlist-modify-private",
-        "streaming",
-        "ugc-image-upload",
-        "user-follow-modify",
-        "user-follow-read",
-        "user-library-read",
-        "user-library-modify",
-        "user-read-private",
-        "user-read-birthdate",
-        "user-read-email",
-        "user-top-read",
-        "user-read-recently-played"
-    ]
+    "redirect_uri": "http://localhost:8686/callback"
 }
