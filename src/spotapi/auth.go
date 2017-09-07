@@ -24,12 +24,8 @@ type Auth struct {
 }
 
 type Client struct {
-	Id          string   `json:"clientId"`
-	Secret      string   `json:"clientSecret"`
-	RedirectUri string   `json:"redirect_uri"`
-	scopes      []string `json:"scopes"`
-	auth        Auth
-	artists     []Artist
+	auth    Auth
+	artists []Artist
 }
 
 func LoadClient() (c *Client) {
