@@ -11,7 +11,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	// "time"
+	"time"
 )
 
 const fileJson = "./client.json"
@@ -151,15 +151,20 @@ func (c *Client) GetToken(code string) {
 	spotClient := http.Client{}
 	res, err := spotClient.Do(req)
 	if err != nil {
+		fmt.Println("fail fatal")
 		log.Fatal(err)
 	}
 
+	// fmt.Println(res.Header)
+
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
+		fmt.Println("read fail fail")
 		panic(err.Error())
 	}
 
 	if err := json.Unmarshal([]byte(body), &c.auth); err != nil {
+		fmt.Println("unmarshal fail fail")
 		panic(err)
 	}
 
@@ -270,7 +275,7 @@ func (c *Client) GetFollowingNewSongs() {
 	}
 
 	for _, artist := range c.artists {
-		sAlbums.Next = "https://api.spotify.com/v1/artists/" + artist.Id + "/albums?market=FR&limit=50"
+		sAlbums.Next = "https://api.spotify.com/v1/artists/" + artist.Id + "/albums?market=FR&limit=50&album_type=album"
 		for sAlbums.Next != "" {
 			req, err := http.NewRequest(http.MethodGet, sAlbums.Next, nil)
 			if err != nil {
@@ -296,7 +301,8 @@ func (c *Client) GetFollowingNewSongs() {
 					panic(err.Error())
 				}
 				if strings.Compare(sAlbum.Release_date, "2017") > 0 {
-					fmt.Println(artist.Name + " - " + album.Name)
+					fmt.Println(artist.Name + " - " + album.Name + " ( " + sAlbum.Release_date + ")")
+					break
 				}
 			}
 		}
@@ -388,6 +394,11 @@ func (c *Client) doRequest(req *http.Request) string {
 
 	spotClient := http.Client{}
 	res, err := spotClient.Do(req)
+	if res.StatusCode == 429 {
+		second, _ := strconv.Atoi(res.Header.Get("Retry-After"))
+		time.Sleep(time.Duration(second+1) * time.Second)
+		res, err = spotClient.Do(req)
+	}
 	if err != nil || c.isBadResult(res) {
 		fmt.Println("request error")
 		log.Fatal(err)
@@ -417,12 +428,10 @@ func (c *Client) isBadResult(res *http.Response) bool {
 		Message string
 	}
 	if err := json.Unmarshal([]byte(body), &response); err != nil {
-		fmt.Println("FAILED to parse response")
 		panic(err.Error())
 	}
 
 	if res.StatusCode == 401 {
-		fmt.Println("[ERROR] unauthorized access")
 
 		if response["error"].Message == "The access token expired" {
 			fmt.Println("Need to refresh fucking token")
