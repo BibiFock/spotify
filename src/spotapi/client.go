@@ -247,6 +247,62 @@ func (c *Client) GetTopSongs() {
 	}
 }
 
+func (c *Client) GetFollowingNewSongs() {
+	c.loadFollowingArtists()
+	var sAlbums struct {
+		Next  string
+		Items []struct {
+			// Album_type    string
+			External_urls struct {
+				Spotify string
+			}
+			Id   string
+			Name string
+			// Type string
+		}
+	}
+
+	var albumUrl = "https://api.spotify.com/v1/albums/"
+	var sAlbum struct {
+		Name                   string
+		Release_date           string
+		Release_date_precision string
+	}
+
+	for _, artist := range c.artists {
+		sAlbums.Next = "https://api.spotify.com/v1/artists/" + artist.Id + "/albums?market=FR&limit=50"
+		for sAlbums.Next != "" {
+			req, err := http.NewRequest(http.MethodGet, sAlbums.Next, nil)
+			if err != nil {
+				panic("url error")
+			}
+
+			body := c.doRequest(req)
+
+			sAlbums.Next = ""
+			if err := json.Unmarshal([]byte(body), &sAlbums); err != nil {
+				panic(err.Error())
+			}
+
+			for _, album := range sAlbums.Items {
+				req, err := http.NewRequest(http.MethodGet, albumUrl+album.Id, nil)
+				if err != nil {
+					panic("url error")
+				}
+
+				body := c.doRequest(req)
+
+				if err := json.Unmarshal([]byte(body), &sAlbum); err != nil {
+					panic(err.Error())
+				}
+				if strings.Compare(sAlbum.Release_date, "2017") > 0 {
+					fmt.Println(artist.Name + " - " + album.Name)
+				}
+			}
+		}
+	}
+}
+
 func (c *Client) GetNewSongs() {
 	c.loadFollowingArtists()
 	var sJson struct {
@@ -263,7 +319,7 @@ func (c *Client) GetNewSongs() {
 		}
 	}
 
-	fmt.Println("--- New Sonds are:")
+	fmt.Println("--- New Songs are:")
 	sJson.Albums.Next = "https://api.spotify.com/v1/browse/new-releases?limit=50"
 	for sJson.Albums.Next != "" {
 		// fmt.Println(sJson.Albums.Next)
