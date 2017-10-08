@@ -300,8 +300,17 @@ func (c *Client) GetFollowingNewSongs() {
 				if err := json.Unmarshal([]byte(body), &sAlbum); err != nil {
 					panic(err.Error())
 				}
-				if strings.Compare(sAlbum.Release_date, "2017") > 0 {
-					fmt.Println(artist.Name + " - " + album.Name + " ( " + sAlbum.Release_date + ")")
+
+				if sAlbum.Release_date_precision == "year" {
+					continue
+				}
+
+				date, err := time.Parse("2006-01-02", sAlbum.Release_date)
+				if err != nil {
+					fmt.Println("can't compare "+sAlbum.Release_date, err)
+				}
+				if time.Since(date).Hours() < 7*4*24 {
+					fmt.Println(artist.Name + " - " + album.Name + " (" + sAlbum.Release_date + ")")
 					break
 				}
 			}
