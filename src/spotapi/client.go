@@ -93,6 +93,7 @@ func (api Client) GetUrlAuth() string {
 
 func (c *Client) refreshToken() bool {
 	urlToken := "https://accounts.spotify.com/api/token"
+	fmt.Println("old token: " + c.auth.Token)
 
 	params := url.Values{}
 	params.Add("grant_type", "refresh_token")
@@ -126,7 +127,8 @@ func (c *Client) refreshToken() bool {
 		panic(err)
 	}
 
-	fmt.Println(c.auth.Token)
+	fmt.Println("new token: " + c.auth.Token)
+	fmt.Println("-----------")
 	c.saveCurrentToken()
 	return true
 }
@@ -408,47 +410,36 @@ func (c *Client) doRequest(req *http.Request) string {
 		time.Sleep(time.Duration(second+1) * time.Second)
 		res, err = spotClient.Do(req)
 	}
-	if err != nil || c.isBadResult(res) {
-		fmt.Println("request error")
-		log.Fatal(err)
-	}
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		fmt.Println("body parse error")
 		panic(err.Error())
 	}
 
-	return string(body)
-}
-
-func (c *Client) isBadResult(res *http.Response) bool {
 	if res.StatusCode == 200 {
-		return false
-	}
-
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		panic(err.Error())
+		return string(body)
 	}
 
 	var response map[string]struct {
 		Status  int
 		Message string
 	}
+
 	if err := json.Unmarshal([]byte(body), &response); err != nil {
 		panic(err.Error())
 	}
 
 	if res.StatusCode == 401 {
-
 		if response["error"].Message == "The access token expired" {
 			fmt.Println("Need to refresh fucking token")
-			return !c.refreshToken()
+			if !c.refreshToken() {
+				panic("failed to refresh token")
+			}
+
+			return c.doRequest(req)
 		}
-	} else {
-		fmt.Println(strconv.Itoa(res.StatusCode) + ": " + response["error"].Message)
 	}
 
-	return true
+	fmt.Println(strconv.Itoa(res.StatusCode) + ": " + response["error"].Message)
+	return strconv.Itoa(res.StatusCode) + ": " + response["error"].Message
 }
