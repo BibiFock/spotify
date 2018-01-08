@@ -93,7 +93,7 @@ func (api Client) GetUrlAuth() string {
 
 func (c *Client) refreshToken() bool {
 	urlToken := "https://accounts.spotify.com/api/token"
-	fmt.Println("old token: " + c.auth.Token)
+	// fmt.Println("old token: " + c.auth.Token)
 
 	params := url.Values{}
 	params.Add("grant_type", "refresh_token")
@@ -127,8 +127,8 @@ func (c *Client) refreshToken() bool {
 		panic(err)
 	}
 
-	fmt.Println("new token: " + c.auth.Token)
-	fmt.Println("-----------")
+	// fmt.Println("new token: " + c.auth.Token)
+	// fmt.Println("-----------")
 	c.saveCurrentToken()
 	return true
 }
@@ -303,7 +303,7 @@ func (c *Client) GetFollowingNewSongs() {
 					panic(err.Error())
 				}
 
-				if sAlbum.Release_date_precision == "year" {
+				if sAlbum.Release_date_precision != "day" {
 					continue
 				}
 
