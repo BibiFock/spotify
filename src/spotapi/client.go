@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -269,6 +270,14 @@ func (c *Client) GetFollowingNewSongs() {
 		}
 	}
 
+	type NewAlbum struct {
+		Name    string
+		Artist  string
+		Release string
+	}
+
+	var newAlbums []NewAlbum
+
 	var albumUrl = "https://api.spotify.com/v1/albums/"
 	var sAlbum struct {
 		Name                   string
@@ -311,12 +320,25 @@ func (c *Client) GetFollowingNewSongs() {
 				if err != nil {
 					fmt.Println("can't compare "+sAlbum.Release_date, err)
 				}
-				if time.Since(date).Hours() < 7*4*24 {
-					fmt.Println(artist.Name + " - " + album.Name + " (" + sAlbum.Release_date + ")")
+				if time.Since(date).Hours() < 4*4*24 {
+					newAlbums = append(newAlbums, NewAlbum{
+						Name:    album.Name,
+						Artist:  artist.Name,
+						Release: sAlbum.Release_date,
+					})
+					// fmt.Println(artist.Name + " - " + album.Name + " (" + sAlbum.Release_date + ")")
 					break
 				}
 			}
 		}
+	}
+
+	sort.Slice(newAlbums, func(i, j int) bool {
+		return strings.Compare(newAlbums[i].Release, newAlbums[i].Release) > 0
+	})
+
+	for _, item := range newAlbums {
+		fmt.Println(item.Artist + " - " + item.Name + " (" + item.Release + ")")
 	}
 }
 
