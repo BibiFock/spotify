@@ -33,5 +33,6 @@ func doYourBest(c *spotapi.Client) {
 	// fmt.Println("------")
 	// c.GetLastSongs()
 	// c.GetTopSongs()
+	// c.GetTopArtists()
 	c.GetFollowingNewSongs()
 }

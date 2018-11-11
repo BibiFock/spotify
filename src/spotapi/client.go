@@ -225,10 +225,44 @@ func (c *Client) GetLastSongs() {
 	}
 }
 
+func (c *Client) GetTopArtists() {
+	var sJson struct {
+		Items []Artist
+		Next  string
+	}
+
+	var artists []Artist
+
+	fmt.Println("--- Top artists:")
+	sJson.Next = "https://api.spotify.com/v1/me/top/artists?limit=50&time_range=medium_term"
+	for sJson.Next != "" {
+		req, err := http.NewRequest(http.MethodGet, sJson.Next, nil)
+		if err != nil {
+			panic("url error")
+		}
+
+		body := c.doRequest(req)
+
+		sJson.Next = ""
+		if err := json.Unmarshal([]byte(body), &sJson); err != nil {
+			panic(err.Error())
+		}
+
+		artists = append(artists, sJson.Items...)
+	}
+	sort.Slice(artists, func(i, j int) bool {
+		return artists[i].Popularity < artists[j].Popularity
+	})
+	for _, item := range artists {
+		fmt.Println(item)
+	}
+}
+
 func (c *Client) GetTopSongs() {
 	var sJson struct {
 		Items []struct {
-			Name string
+			Name       string
+			Popularity int
 		}
 		Next string
 	}
@@ -256,6 +290,7 @@ func (c *Client) GetTopSongs() {
 }
 
 func (c *Client) GetFollowingNewSongs() {
+	fmt.Println("---- [LOAD ARTISTS]")
 	c.loadFollowingArtists()
 	var sAlbums struct {
 		Next  string
@@ -285,7 +320,9 @@ func (c *Client) GetFollowingNewSongs() {
 		Release_date_precision string
 	}
 
+	fmt.Println("---- [LOOKING FOR NEW SONGS]")
 	for _, artist := range c.artists {
+		fmt.Printf(".")
 		sAlbums.Next = "https://api.spotify.com/v1/artists/" + artist.Id + "/albums?market=FR&limit=50&album_type=album"
 		for sAlbums.Next != "" {
 			req, err := http.NewRequest(http.MethodGet, sAlbums.Next, nil)
@@ -326,15 +363,19 @@ func (c *Client) GetFollowingNewSongs() {
 						Artist:  artist.Name,
 						Release: sAlbum.Release_date,
 					})
-					// fmt.Println(artist.Name + " - " + album.Name + " (" + sAlbum.Release_date + ")")
 					break
 				}
 			}
 		}
 	}
 
+	fmt.Println("")
 	sort.Slice(newAlbums, func(i, j int) bool {
-		return strings.Compare(newAlbums[i].Release, newAlbums[i].Release) > 0
+		var compare = strings.Compare(newAlbums[i].Release, newAlbums[j].Release)
+		if compare != 0 {
+			return compare < 0
+		}
+		return strings.Compare(newAlbums[i].Artist, newAlbums[j].Artist) > 0
 	})
 
 	for _, item := range newAlbums {
