@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
@@ -289,8 +290,16 @@ func (c *Client) GetTopSongs() {
 	}
 }
 
+func (c *Client) GetRandomArtists() {
+	c.loadFollowingArtists()
+	rand.Seed(time.Now().Unix()) // initialize global pseudo random generator
+	for i := 0; i < 10; i++ {
+		randIndex := rand.Intn(len(c.artists))
+		fmt.Println(c.artists[randIndex])
+	}
+}
+
 func (c *Client) GetFollowingNewSongs() {
-	fmt.Println("---- [LOAD ARTISTS]")
 	c.loadFollowingArtists()
 	var sAlbums struct {
 		Next  string
@@ -330,6 +339,7 @@ func (c *Client) GetFollowingNewSongs() {
 				panic("url error")
 			}
 
+			// fmt.Println(sAlbums.Next)
 			body := c.doRequest(req)
 
 			sAlbums.Next = ""
@@ -434,6 +444,7 @@ func (c *Client) GetNewSongs() {
 }
 
 func (c *Client) loadFollowingArtists() {
+	fmt.Println("---- [LOAD ARTISTS]")
 	var jsonStruct struct {
 		Artists struct {
 			Next  string
@@ -448,6 +459,7 @@ func (c *Client) loadFollowingArtists() {
 		if err != nil {
 			panic("url error")
 		}
+		fmt.Println(jsonStruct.Artists.Next)
 
 		body := c.doRequest(req)
 
@@ -460,11 +472,14 @@ func (c *Client) loadFollowingArtists() {
 			c.artists = append(c.artists, artist)
 		}
 	}
+
+	fmt.Println(strconv.Itoa(len(c.artists)) + " artists found")
 }
 
 func (c *Client) doRequest(req *http.Request) string {
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Authorization", c.auth.Prefix+" "+c.auth.Token)
+	// fmt.Println(c.auth.Prefix + " " + c.auth.Token)
 
 	spotClient := http.Client{}
 	res, err := spotClient.Do(req)
@@ -473,6 +488,7 @@ func (c *Client) doRequest(req *http.Request) string {
 		time.Sleep(time.Duration(second+1) * time.Second)
 		res, err = spotClient.Do(req)
 	}
+	// fmt.Println(res.StatusCode)
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
