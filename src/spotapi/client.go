@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
@@ -286,6 +287,20 @@ func (c *Client) GetTopSongs() {
 			fmt.Println(item)
 		}
 
+	}
+}
+
+func (c *Client) GetRandomArtists() {
+	fmt.Println("---- [LOAD ARTISTS]")
+	c.loadFollowingArtists()
+
+	fmt.Println("---- [RANDOM LIST]")
+
+	limit := 10
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	list := r.Perm(len(c.artists))
+	for n := limit; n > 0; n-- {
+		fmt.Println(c.artists[list[n]])
 	}
 }
 

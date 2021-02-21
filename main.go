@@ -35,4 +35,5 @@ func doYourBest(c *spotapi.Client) {
 	// c.GetTopSongs()
 	// c.GetTopArtists()
 	c.GetFollowingNewSongs()
+	// c.GetRandomArtists()
 }
